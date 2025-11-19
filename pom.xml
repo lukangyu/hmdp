@@ -62,6 +62,15 @@
             <artifactId>hutool-all</artifactId>
             <version>5.8.18</version>
         </dependency>
+
+
+        <!-- 添加Spring Boot的AOP启动器 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-aop</artifactId>
+        </dependency>
+
+
     </dependencies>
 
     <build>

@@ -11,6 +11,8 @@ import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +27,7 @@ import java.time.LocalDateTime;
  * @author 虎哥
  * @since 2021-12-22
  */
+@Slf4j
 @Service
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
 
@@ -41,7 +44,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
      * @return 订单id
      */
     @Override
-    @Transactional
     public Result seckillVoucher(Long voucherId) {
         // 1. 查询优惠券
         SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
@@ -57,15 +59,23 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         //3.库存是否充足
         Integer stock = voucher.getStock();
         if (stock < 1) {
+            log.info("库存不足");
             return Result.fail("库存不足");
         }
-        return createVoucherOrder(voucherId);
+        Long userId = UserHolder.getUser().getId();
+        synchronized (userId.toString().intern()){
+            //使用Aopcontext获取代理对象，避免事务失效，这是由于springboot在开启事务时，
+            IVoucherOrderService proxy =(IVoucherOrderService) AopContext.currentProxy();
+            return proxy.createVoucherOrder(voucherId);
+        }
     }
 
-    private synchronized Result createVoucherOrder(Long voucherId) {
+    @Transactional
+    public Result createVoucherOrder(Long voucherId) {
         //4.判断用户是否已经购买过
         Long useId = UserHolder.getUser().getId();
         if (query().eq("user_id", useId).eq("voucher_id", voucherId).count() > 0) {
+            log.info("用户已经购买过");
             return Result.fail("用户已经购买过");
         }
         //5.扣减库存
@@ -89,6 +99,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         voucherOrder.setVoucherId(voucherId);
         save(voucherOrder);
         //7.返回订单id
+        log.info("订单创建成功");
         return Result.ok(orderId);
     }
 }
