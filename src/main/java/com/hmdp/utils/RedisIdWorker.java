@@ -13,7 +13,7 @@ import java.time.format.DateTimeFormatter;
 @Component
 public class RedisIdWorker {
 
-    private static final String ID_PREFIX = "id:";
+    private static final String ID_PREFIX = "icr:";
     @Resource
     private StringRedisTemplate stringRedisTemplate;
     /**

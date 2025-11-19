@@ -121,7 +121,11 @@ public class CacheClient {
             //获取互斥锁
             if(!tryLock(lockKey)) {
                 log.info("获取锁失败");
-                Thread.sleep(50);
+                try {
+                    Thread.sleep(50);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
                 return queryWithMutex(keyPrefix, lockKeyPrefix, id, type, dbFallback, time, unit);
             }
             if (Objects.nonNull(json)) {
@@ -132,7 +136,11 @@ public class CacheClient {
             // 不存在，根据id查询数据库
             r = dbFallback.apply(id);
             //模拟延迟
-            Thread.sleep(200);
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
             if (r == null) {
                 // 数据库中不存在
                 log.info("店铺不存在,缓存空对象");
