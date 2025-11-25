@@ -14,7 +14,7 @@ public class SimpleRedisLock implements ILock{
     private StringRedisTemplate stringRedisTemplate;
     private String name;
 
-    public SimpleRedisLock(StringRedisTemplate stringRedisTemplate, String name) {
+    public SimpleRedisLock(String name, StringRedisTemplate stringRedisTemplate) {
         this.stringRedisTemplate = stringRedisTemplate;
         this.name = name;
     }

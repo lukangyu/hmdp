@@ -9,9 +9,12 @@ import com.hmdp.entity.VoucherOrder;
 import com.hmdp.mapper.VoucherOrderMapper;
 import com.hmdp.service.ISeckillVoucherService;
 import com.hmdp.service.IVoucherOrderService;
+import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RedisIdWorker;
 import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +41,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @Resource
     private RedisIdWorker redisIdWorker;
 
+    @Resource
+    private RedissonClient redissonClient;
+
     /**
      * 秒杀优惠券
      * @param voucherId 优惠券id
@@ -63,10 +69,24 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
             return Result.fail("库存不足");
         }
         Long userId = UserHolder.getUser().getId();
-        synchronized (userId.toString().intern()){
-            //使用Aopcontext获取代理对象，避免事务失效，这是由于springboot在开启事务时，
-            IVoucherOrderService proxy =(IVoucherOrderService) AopContext.currentProxy();
+//        synchronized (userId.toString().intern()){
+//            //使用Aopcontext获取代理对象，避免事务失效，这是由于springboot在开启事务时，
+//            IVoucherOrderService proxy =(IVoucherOrderService) AopContext.currentProxy();
+//            return proxy.createVoucherOrder(voucherId);
+//        }
+        RLock lock = redissonClient.getLock(RedisConstants.LOCK_ORDER_KEY + userId);
+
+        boolean isLock = lock.tryLock();
+        if(!isLock){
+            //获取锁失败,返回错误信息,重试
+            return Result.fail("不允许重复下单");
+        }
+        try {
+            IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId);
+        }
+        finally {
+            lock.unlock();
         }
     }
 
@@ -102,4 +122,5 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         log.info("订单创建成功");
         return Result.ok(orderId);
     }
+
 }

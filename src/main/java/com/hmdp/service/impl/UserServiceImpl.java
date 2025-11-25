@@ -14,14 +14,17 @@ import com.hmdp.service.IUserService;
 import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.RegexUtils;
 import com.hmdp.utils.SystemConstants;
+import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 
 import static com.hmdp.utils.SystemConstants.USER_NICK_NAME_PREFIX;
@@ -88,7 +91,21 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
                 CopyOptions.create().setFieldValueEditor((fieldName, fieldValue)  -> fieldValue.toString())));
         //设置token有效期,防止过多的用户登录，占据缓存空间
         stringRedisTemplate.expire(RedisConstants.LOGIN_USER_KEY + token, RedisConstants.LOGIN_USER_TTL, java.util.concurrent.TimeUnit.MINUTES);
+        log.info("用户{}登录成功，生成token：{}", userDTO.getNickName(), token);
+        //返回token，存储到HttpServletRequest中，退出登录时可以从request中获取，从redis中删除
         return Result.ok(token);
+    }
+
+    @Override
+    public Result logout(HttpServletRequest request) {
+        String name = UserHolder.getUser().getNickName();
+        LocalDateTime now = LocalDateTime.now();
+        String token = request.getHeader("authorization");
+        String tokenKey = RedisConstants.LOGIN_USER_KEY + token;
+        stringRedisTemplate.delete(tokenKey);
+        log.info("{}用户{}退出登录", now, name);
+        UserHolder.removeUser();
+        return Result.ok("退出登录成功");
     }
 
     private User createUserWithPhone(String phone) {
