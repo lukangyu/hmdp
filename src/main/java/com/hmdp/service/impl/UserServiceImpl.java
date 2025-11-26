@@ -73,9 +73,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         String code = loginForm.getCode();
         //Object cacheCode = session.getAttribute("code");//注意：这里为什么不使用string，因为session中存储的是object，且直接转化有可能code为null，所以这里使用object
         String cacheCode = stringRedisTemplate.opsForValue().get(RedisConstants.LOGIN_CODE_KEY + phone);
-        if(cacheCode == null || !cacheCode.equals(code)){
-            return Result.fail("验证码错误");
-        }
+//        if(cacheCode == null || !cacheCode.equals(code)){
+//            return Result.fail("验证码错误");
+//        }
         //3.查询用户
         User user = (User) query().eq("phone", phone).one();
         //如果不存在，创建新用户
