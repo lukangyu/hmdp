@@ -5,6 +5,8 @@
  -- 用户id
  local userId = ARGV[2];
 
+ -- 订单id
+ local orderId = ARGV[3];
 
  -- 数据key
 
@@ -18,7 +20,8 @@
  -- 判断库存是否充足
  local stock = redis.call("get", stockKey);
  -- 注意这里的tonumber()，因为redis.call()返回的是字符串，需要转换成数字
- if (tonumber(stock) <= 0) then
+
+ if (not stock or tonumber(stock) <= 0) then
     -- 秒杀活动不存在
     return 1;
  end
@@ -29,9 +32,9 @@
     return 2;
  end
 
- -- 减库存，下订单
- redis.call("incrby", stockKey, -1);
+ -- 减库存，下订单，发送消息到队列
+ redis.call("decrby", stockKey, 1);
  redis.call("sadd", orderKey, userId);
  -- 发送消息，这里使用stream
-
+ redis.call("xadd", "stream.orders", "*", "userId", userId, "voucherId", voucherId, "id", orderId);
  return 0;
