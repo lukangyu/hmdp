@@ -77,6 +77,7 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         initStreamAndConsumerGroup();
         // 预热库存数据
         warmupSeckillStock();
+
         SECKILL_ORDER_EXECUTOR.submit(new VoucherOrderHandler());
     }
 
