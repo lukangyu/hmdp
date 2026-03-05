@@ -15,7 +15,7 @@ import com.hmdp.utils.UserHolder;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
-import org.springframework.aop.framework.AopContext;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -226,6 +226,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         private void handleVoucherOrder(VoucherOrder voucherOrder) {
+            // 忽略初始化哨兵等非法消息，避免污染订单消费链路
+            if (voucherOrder.getUserId() == null || voucherOrder.getVoucherId() == null || voucherOrder.getId() == null) {
+                log.warn("忽略非法订单消息: {}", voucherOrder);
+                return;
+            }
             Long userId = voucherOrder.getUserId();
             //创建锁，兜底
             RLock lock = redissonClient.getLock(RedisConstants.LOCK_ORDER_KEY + userId);
@@ -288,6 +293,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 //    }
 
 
+    @Lazy
+    @Resource
     private IVoucherOrderService proxy;
 
     /**
@@ -337,8 +344,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 //        voucherOrder.setVoucherId(voucherId);
 //        //放入阻塞队列
 //        orderTasks.add(voucherOrder);
-        //获取代理对象，避免事务失效
-        proxy = (IVoucherOrderService) AopContext.currentProxy();
         return Result.ok(orderId);
     }
 
@@ -394,6 +399,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 .eq("voucher_id", voucherId)
                 .gt("stock", 0)
                 .update();
+
+        if (!success) {
+            log.error("库存扣减失败，跳过落库，voucherId={}, orderId={}", voucherId, voucherOrder.getId());
+            return;
+        }
 
         // 2.创建订单（库存已经在Lua脚本中扣减）
         save(voucherOrder);
